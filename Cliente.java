@@ -7,7 +7,7 @@ public class Cliente {
         this.usuario = usuario;
     }
 
-    public Cliente aPartirDe(Usuario usuario) {
+    public static Cliente aPartirDe(Usuario usuario) {
         return new Cliente(usuario);
     }
 
@@ -17,5 +17,9 @@ public class Cliente {
 
     public Cuenta crearCuentaCon(BigDecimal saldoInicial) {
         return Cuenta.abrirCon(this, saldoInicial);
+    }
+
+    public Usuario obtenerUsuario() {
+        return usuario;
     }
 }
