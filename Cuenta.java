@@ -38,10 +38,12 @@ public class Cuenta {
         if (monto.min(BigDecimal.ZERO).equals(monto))
             throw new MontoNegativo();
 
+        Transaccion transaccion = Transaccion.en(this)
+                .porDeposito(monto);
+
         this.saldo = saldo.add(monto);
 
-        return Transaccion.en(this)
-                .porDeposito(monto);
+        return transaccion;
     }
 
     public Transaccion retirarFondos(BigDecimal monto) {
@@ -51,10 +53,12 @@ public class Cuenta {
         if (monto.min(saldo).equals(saldo))
             throw new FondosInsuficientes();
 
+        Transaccion transaccion = Transaccion.en(this)
+                .porRetiro(monto);
+
         this.saldo = saldo.subtract(monto);
 
-        return Transaccion.en(this)
-                .porRetiro(monto);
+        return transaccion;
     }
 
     public List<Transaccion> transferirFondos(BigDecimal monto, Cuenta a) {
