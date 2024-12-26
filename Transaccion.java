@@ -15,7 +15,7 @@ public class Transaccion {
     }
 
     public enum Accion {
-        RETIRO, DEPOSITO
+        RETIRO, DEPOSITO, TRANSFERENCIA
     }
 
     public static class Builder {
@@ -42,6 +42,25 @@ public class Transaccion {
 
             return transaccion;
         }
+
+        public Transaccion porTransferenciaEnviada(BigDecimal monto) {
+            Transaccion transaccion = new Transaccion(cuenta, Accion.TRANSFERENCIA);
+
+            transaccion.saldoAnterior = cuenta.obtenerSaldo();
+            transaccion.saldoActual = cuenta.obtenerSaldo().subtract(monto);
+
+            return transaccion;
+        }
+
+        public Transaccion porTransferenciaRecibida(BigDecimal monto) {
+            Transaccion transaccion = new Transaccion(cuenta, Accion.TRANSFERENCIA);
+
+            transaccion.saldoAnterior = cuenta.obtenerSaldo();
+            transaccion.saldoActual = cuenta.obtenerSaldo().add(monto);
+
+            return transaccion;
+        }
+
     }
 
     public static Builder en(Cuenta cuenta) {

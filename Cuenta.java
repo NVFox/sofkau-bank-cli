@@ -1,4 +1,5 @@
 import java.math.BigDecimal;
+import java.util.List;
 
 public class Cuenta {
     private Cliente propietario;
@@ -54,5 +55,24 @@ public class Cuenta {
 
         return Transaccion.en(this)
                 .porRetiro(monto);
+    }
+
+    public List<Transaccion> transferirFondos(BigDecimal monto, Cuenta a) {
+        if (monto.min(BigDecimal.ZERO).equals(monto))
+            throw new MontoNegativo();
+
+        if (monto.min(saldo).equals(saldo))
+            throw new FondosInsuficientes();
+
+        Transaccion transaccionPorEnvio = Transaccion.en(this)
+                .porTransferenciaEnviada(monto);
+
+        Transaccion transaccionPorRecibo = Transaccion.en(this)
+                .porTransferenciaRecibida(monto);
+
+        this.saldo = saldo.subtract(monto);
+        a.saldo = saldo.add(monto);
+
+        return List.of(transaccionPorEnvio, transaccionPorRecibo);
     }
 }
