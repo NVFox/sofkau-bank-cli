@@ -29,20 +29,30 @@ public class Cuenta {
         return new Cuenta(cliente, saldo);
     }
 
-    public void depositarFondos(BigDecimal monto) {
+    public BigDecimal obtenerSaldo() {
+        return this.saldo;
+    }
+
+    public Transaccion depositarFondos(BigDecimal monto) {
         if (monto.min(BigDecimal.ZERO).equals(monto))
             throw new MontoNegativo();
 
-        saldo.add(monto);
+        this.saldo = saldo.add(monto);
+
+        return Transaccion.en(this)
+                .porDeposito(monto);
     }
 
-    public void retirarFondos(BigDecimal monto) {
+    public Transaccion retirarFondos(BigDecimal monto) {
         if (monto.min(BigDecimal.ZERO).equals(monto))
             throw new MontoNegativo();
 
         if (monto.min(saldo).equals(saldo))
             throw new FondosInsuficientes();
 
-        saldo.subtract(monto);
+        this.saldo = saldo.subtract(monto);
+
+        return Transaccion.en(this)
+                .porRetiro(monto);
     }
 }
