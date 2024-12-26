@@ -66,4 +66,24 @@ public class Transaccion {
     public static Builder en(Cuenta cuenta) {
         return new Builder(cuenta);
     }
+
+    public Cuenta obtenerCuenta() {
+        return cuenta;
+    }
+
+    public Accion obtenerAccion() {
+        return accion;
+    }
+
+    public BigDecimal obtenerSaldoAnterior() {
+        return saldoAnterior;
+    }
+
+    public BigDecimal obtenerSaldoActual() {
+        return saldoActual;
+    }
+
+    public LocalDateTime obtenerFecha() {
+        return fecha;
+    }
 }

@@ -1,3 +1,5 @@
+import java.math.BigDecimal;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -10,6 +12,7 @@ public class SistemaBancario {
 
     private static Map<String, Cliente> clientes = new HashMap<>();
     private static Map<Cliente, List<Cuenta>> cuentas = new HashMap<>();
+    private static Map<Cuenta, List<Transaccion>> transacciones = new HashMap<>();
 
     private enum TipoValidacion {
         INICIO, CREACION;
@@ -120,7 +123,7 @@ public class SistemaBancario {
             List<Cuenta> cuentas = SistemaBancario.cuentas
                     .getOrDefault(cliente, new ArrayList<>());
 
-            respuesta = perfil(cliente, cuentas);
+            respuesta = renderizar(() -> perfil(cliente, cuentas));
 
             if (respuesta == 0 || respuesta == 1)
                 abierto = false;
@@ -163,11 +166,188 @@ public class SistemaBancario {
             return input.hasNextLine() ? input.nextLine() : "000";
         });
 
-        return switch (eleccionUsuario) {
+        int respuesta = switch (eleccionUsuario) {
             case "00" -> 0;
             case "000" -> 1;
             default -> -1;
         };
+
+        if (respuesta == -1) {
+            int seleccionada = Integer.parseInt(eleccionUsuario);
+            Cuenta cuenta = seleccionada == 0
+                    ? crearCuenta(cliente)
+                    : cuentas.get(seleccionada - 1);
+
+            int resultado = cargarCuenta(cuenta);
+
+            if (resultado == 0)
+                respuesta = resultado;
+        }
+
+        return respuesta;
+    }
+
+    private static Cuenta crearCuenta(Cliente cliente) {
+        while (true) {
+            System.out.print("Digite saldo inicial (Si no tiene, ponga 0): ");
+            BigDecimal saldoInicial = input.hasNextBigDecimal()
+                    ? input.nextBigDecimal()
+                    : BigDecimal.ZERO;
+
+            try {
+                Cuenta cuenta = Cuenta.abrirCon(cliente, saldoInicial);
+
+                cuentas.computeIfAbsent(cliente, (k) -> new ArrayList<>())
+                        .add(cuenta);
+
+                return cuenta;
+            } catch (Exception e) {
+                renderizar(() -> System.out.println(e.getMessage()));
+            }
+        }
+    }
+
+    private static int cargarCuenta(Cuenta cuenta) {
+        boolean abierto = true;
+        int respuesta = 0;
+
+        while (abierto) {
+            List<Transaccion> transacciones = SistemaBancario.transacciones
+                    .getOrDefault(cuenta, new ArrayList<>());
+
+            respuesta = renderizar(() -> cuenta(cuenta, transacciones));
+
+            if (respuesta == 0 || respuesta == 1 || respuesta == 2)
+                abierto = false;
+        }
+
+        return respuesta;
+    }
+
+    private static int cuenta(Cuenta cuenta, List<Transaccion> transacciones) {
+        System.out.println("""
+                Bienvenido a tu cuenta.
+
+                Estas son tus últimas transacciones: """);
+
+        renderizar(() -> {
+            System.out.println("** Transacciones");
+
+            if (transacciones.isEmpty())
+                System.out.println("Upss, parece que no tienes transacciones aún.");
+
+            for (int i = 0; i < transacciones.size(); i++) {
+                Transaccion transaccion = transacciones.get(i);
+
+                String fechaFormateada = transaccion.obtenerFecha()
+                        .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+
+                BigDecimal saldoAnterior = transaccion.obtenerSaldoAnterior();
+                BigDecimal saldoActual = transaccion.obtenerSaldoActual();
+
+                System.out.print(" " + (i + 1) + ". " + fechaFormateada
+                        + ". ($" + saldoAnterior + " -> $" + saldoActual + ").  ");
+
+                if (saldoAnterior.min(saldoActual).equals(saldoAnterior)) {
+                    System.out.println("+ $" + saldoActual.subtract(saldoAnterior));
+                } else {
+                    System.out.println("- $" + saldoAnterior.subtract(saldoActual));
+                }
+
+                System.out.println(transaccion.obtenerAccion()
+                        .toString());
+            }
+        });
+
+        System.out.println("""
+                Opciones disponibles:
+
+                ** Operaciones **
+
+                1. Depositar fondos
+                2. Retirar fondos
+                3. Transferir a otra cuenta
+
+                0. Volver a mi perfil
+                00. Cerrar sesión
+                000. Salir de la aplicación""");
+
+        String eleccionUsuario = renderizar(() -> {
+            System.out.print("Su elección: ");
+            return input.hasNextLine() ? input.nextLine() : "000";
+        });
+
+        int respuesta = switch (eleccionUsuario) {
+            case "0" -> 2;
+            case "00" -> 0;
+            case "000" -> 1;
+            default -> -1;
+        };
+
+        if (respuesta == -1) {
+            int seleccionada = Integer.parseInt(eleccionUsuario);
+
+            try {
+                List<Transaccion> transaccionesPorOperacion = switch (seleccionada) {
+                    case 1 -> depositarEnCuenta(cuenta);
+                    case 2 -> retirarDeCuenta(cuenta);
+                    case 3 -> transferirDesdeCuenta(cuenta);
+                    default -> new ArrayList<>();
+                };
+
+                for (Transaccion transaccion : transaccionesPorOperacion) {
+                    SistemaBancario.transacciones
+                            .computeIfAbsent(transaccion.obtenerCuenta(), (k) -> new ArrayList<>())
+                            .add(transaccion);
+                }
+            } catch (Exception e) {
+                renderizar(() -> System.out.println(e.getMessage()));
+            }
+        }
+
+        return respuesta;
+    }
+
+    private static List<Transaccion> depositarEnCuenta(Cuenta cuenta) {
+        System.out.print("Digite monto a depositar: ");
+        BigDecimal monto = input.hasNextBigDecimal() ? input.nextBigDecimal() : BigDecimal.ZERO;
+
+        return List.of(cuenta.depositarFondos(monto));
+    }
+
+    private static List<Transaccion> retirarDeCuenta(Cuenta cuenta) {
+        System.out.print("Digite monto a retirar: ");
+        BigDecimal monto = input.hasNextBigDecimal() ? input.nextBigDecimal() : BigDecimal.ZERO;
+
+        return List.of(cuenta.retirarFondos(monto));
+    }
+
+    private static List<Transaccion> transferirDesdeCuenta(Cuenta cuenta) {
+        System.out.print("Digite monto a transferir: ");
+        BigDecimal monto = input.hasNextBigDecimal() ? input.nextBigDecimal() : BigDecimal.ZERO;
+
+        Cuenta cuentaDestino = renderizar(() -> {
+            System.out.print("Ingrese nombre del propietario de la cuenta a transferir: ");
+            String nombre = input.hasNextLine() ? input.nextLine() : "";
+
+            System.out.print("Ingrese número de la cuenta: ");
+            int numero = input.hasNextInt() ? input.nextInt() : 0;
+
+            if (!clientes.containsKey(nombre))
+                throw new RuntimeException("Cliente no existe.");
+
+            Cliente cliente = clientes.get(nombre);
+
+            List<Cuenta> cuentas = SistemaBancario.cuentas
+                    .getOrDefault(cliente, new ArrayList<>());
+
+            if (numero <= 0 || numero > cuentas.size())
+                throw new RuntimeException("Cuenta seleccionada no existe o no es válida");
+
+            return cuentas.get(numero - 1);
+        });
+
+        return cuenta.transferirFondos(monto, cuentaDestino);
     }
 
     private static void renderizar(Runnable vista) {
