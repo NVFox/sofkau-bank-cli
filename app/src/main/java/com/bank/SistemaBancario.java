@@ -7,13 +7,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
-import java.util.function.Supplier;
+import java.util.UUID;
 
 public class SistemaBancario {
     private static Scanner input = new Scanner(System.in);
 
     private static Map<String, Cliente> clientes = new HashMap<>();
+
     private static Map<Cliente, List<Cuenta>> cuentas = new HashMap<>();
+    private static Map<UUID, Cuenta> cuentasPorNumero = new HashMap<>();
+
     private static Map<Cuenta, List<Transaccion>> transacciones = new HashMap<>();
 
     private enum TipoValidacion {
@@ -36,21 +39,27 @@ public class SistemaBancario {
         boolean abierto = true;
 
         while (abierto) {
-            renderizar(SistemaBancario::bienvenida);
+            bienvenida();
+            System.out.println();
 
-            int eleccionCuenta = renderizar(SistemaBancario::eleccionUsuario);
+            System.out.print("Su elección: ");
+            int eleccionCuenta = input.hasNextInt() ? input.nextInt() : 0;
+
+            System.out.println();
 
             if (!TipoValidacion.esValido(eleccionCuenta))
                 abierto = false;
 
             TipoValidacion tipoValidacion = TipoValidacion.porCodigo(eleccionCuenta);
 
-            Cliente cliente = renderizar(SistemaBancario::creacionInicioCliente);
+            Cliente cliente = creacionInicioCliente();
 
             boolean clienteEsValido = switch (tipoValidacion) {
                 case INICIO -> comprobarInicioDeSesion(cliente);
                 case CREACION -> comprobarCreacionDeCliente(cliente);
             };
+
+            System.out.println();
 
             if (!clienteEsValido)
                 continue;
@@ -70,17 +79,14 @@ public class SistemaBancario {
                 2. Crear una cuenta""");
     }
 
-    private static int eleccionUsuario() {
-        System.out.print("Su elección: ");
-        return input.hasNextInt() ? input.nextInt() : 0;
-    }
-
     private static Cliente creacionInicioCliente() {
         System.out.print("Ingrese nombre de usuario: ");
-        String nombre = input.hasNextLine() ? input.nextLine() : null;
+        String nombre = input.hasNext() ? input.next() : null;
+        input.nextLine();
 
         System.out.print("Ingrese contraseña: ");
-        String contraseña = input.hasNextLine() ? input.nextLine() : null;
+        String contraseña = input.hasNext() ? input.next() : null;
+        input.nextLine();
 
         return Cliente.aPartirDe(new Usuario(nombre, contraseña));
     }
@@ -89,7 +95,8 @@ public class SistemaBancario {
         Usuario usuario = cliente.obtenerUsuario();
 
         if (!clientes.containsKey(usuario.nombre())) {
-            System.out.println("El usuario no existe.");
+            System.out.println();
+            System.out.println("Error: El usuario no existe.");
             return false;
         }
 
@@ -97,7 +104,8 @@ public class SistemaBancario {
                 .obtenerUsuario();
 
         if (!almacenado.contraseña().equals(usuario.contraseña())) {
-            System.out.println("La clave es incorrecta.");
+            System.out.println();
+            System.out.println("Error: La clave es incorrecta.");
             return false;
         }
 
@@ -108,7 +116,8 @@ public class SistemaBancario {
         Usuario usuario = cliente.obtenerUsuario();
 
         if (clientes.containsKey(usuario.nombre())) {
-            System.out.println("El usuario ya existe.");
+            System.out.println();
+            System.out.println("Error: El usuario ya existe.");
             return false;
         }
 
@@ -125,7 +134,7 @@ public class SistemaBancario {
             List<Cuenta> cuentas = SistemaBancario.cuentas
                     .getOrDefault(cliente, new ArrayList<>());
 
-            respuesta = renderizar(() -> perfil(cliente, cuentas));
+            respuesta = perfil(cliente, cuentas);
 
             if (respuesta == 0 || respuesta == 1)
                 abierto = false;
@@ -140,19 +149,22 @@ public class SistemaBancario {
         System.out.println(String.format("""
                 Bienvenido de vuelta, %s
 
-                Tienes los siguientes productos: """, usuario.nombre()));
+                Tienes los siguientes productos:""", usuario.nombre()));
 
-        renderizar(() -> {
-            System.out.println("** Cuentas");
+        System.out.println();
 
-            if (cuentas.isEmpty())
-                System.out.println("Upss, parece que no tienes cuentas aún.");
+        System.out.println("** Cuentas");
 
-            for (int i = 0; i < cuentas.size(); i++) {
-                System.out.println(" " + (i + 1) + ". Cuenta Nro. " + (i + 1)
-                        + ". (Saldo disponible: $" + cuentas.get(i).obtenerSaldo() + ").");
-            }
-        });
+        if (cuentas.isEmpty())
+            System.out.println("Upss, parece que no tienes cuentas aún.");
+
+        for (int i = 0; i < cuentas.size(); i++) {
+            Cuenta cuenta = cuentas.get(i);
+            System.out.println(" " + (i + 1) + ". Cuenta " + cuenta.obtenerNumero()
+                    + ". (Saldo disponible: $" + cuenta.obtenerSaldo() + ").");
+        }
+
+        System.out.println();
 
         System.out.println("""
                 Opciones disponibles:
@@ -163,10 +175,12 @@ public class SistemaBancario {
                 00. Cerrar sesión
                 000. Salir de la aplicación""");
 
-        String eleccionUsuario = renderizar(() -> {
-            System.out.print("Su elección: ");
-            return input.hasNextLine() ? input.nextLine() : "000";
-        });
+        System.out.println();
+
+        System.out.print("Su elección: ");
+
+        String eleccionUsuario = input.hasNext() ? input.next() : "000";
+        input.nextLine();
 
         int respuesta = switch (eleccionUsuario) {
             case "00" -> 0;
@@ -180,9 +194,11 @@ public class SistemaBancario {
                     ? crearCuenta(cliente)
                     : cuentas.get(seleccionada - 1);
 
+            System.out.println();
+
             int resultado = cargarCuenta(cuenta);
 
-            if (resultado == 0)
+            if (resultado == 0 || resultado == 1)
                 respuesta = resultado;
         }
 
@@ -190,6 +206,8 @@ public class SistemaBancario {
     }
 
     private static Cuenta crearCuenta(Cliente cliente) {
+        System.out.println();
+
         while (true) {
             System.out.print("Digite saldo inicial (Si no tiene, ponga 0): ");
             BigDecimal saldoInicial = input.hasNextBigDecimal()
@@ -202,9 +220,13 @@ public class SistemaBancario {
                 cuentas.computeIfAbsent(cliente, (k) -> new ArrayList<>())
                         .add(cuenta);
 
+                cuentasPorNumero.put(cuenta.obtenerNumero(), cuenta);
+
                 return cuenta;
             } catch (Exception e) {
-                renderizar(() -> System.out.println(e.getMessage()));
+                System.out.println();
+                System.out.println("Error: " + e.getMessage());
+                System.out.println();
             }
         }
     }
@@ -217,7 +239,7 @@ public class SistemaBancario {
             List<Transaccion> transacciones = SistemaBancario.transacciones
                     .getOrDefault(cuenta, new ArrayList<>());
 
-            respuesta = renderizar(() -> cuenta(cuenta, transacciones));
+            respuesta = cuenta(cuenta, transacciones);
 
             if (respuesta == 0 || respuesta == 1 || respuesta == 2)
                 abierto = false;
@@ -227,39 +249,42 @@ public class SistemaBancario {
     }
 
     private static int cuenta(Cuenta cuenta, List<Transaccion> transacciones) {
-        System.out.println("""
-                Bienvenido a tu cuenta.
+        System.out.println(String.format("""
+                -- Bienvenido a tu cuenta (%s).
+                *  Saldo disponible: $%s
 
-                Estas son tus últimas transacciones: """);
+                Estas son tus últimas transacciones:""", cuenta.obtenerNumero(), cuenta.obtenerSaldo()));
 
-        renderizar(() -> {
-            System.out.println("** Transacciones");
+        System.out.println();
 
-            if (transacciones.isEmpty())
-                System.out.println("Upss, parece que no tienes transacciones aún.");
+        System.out.println("** Transacciones");
 
-            for (int i = 0; i < transacciones.size(); i++) {
-                Transaccion transaccion = transacciones.get(i);
+        if (transacciones.isEmpty())
+            System.out.println("Upss, parece que no tienes transacciones aún.");
 
-                String fechaFormateada = transaccion.obtenerFecha()
-                        .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        for (int i = 0; i < transacciones.size(); i++) {
+            Transaccion transaccion = transacciones.get(i);
 
-                BigDecimal saldoAnterior = transaccion.obtenerSaldoAnterior();
-                BigDecimal saldoActual = transaccion.obtenerSaldoActual();
+            String fechaFormateada = transaccion.obtenerFecha()
+                    .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 
-                System.out.print(" " + (i + 1) + ". " + fechaFormateada
-                        + ". ($" + saldoAnterior + " -> $" + saldoActual + ").  ");
+            BigDecimal saldoAnterior = transaccion.obtenerSaldoAnterior();
+            BigDecimal saldoActual = transaccion.obtenerSaldoActual();
 
-                if (saldoAnterior.min(saldoActual).equals(saldoAnterior)) {
-                    System.out.println("+ $" + saldoActual.subtract(saldoAnterior));
-                } else {
-                    System.out.println("- $" + saldoAnterior.subtract(saldoActual));
-                }
+            System.out.print(" " + (i + 1) + ". " + fechaFormateada
+                    + ". ($" + saldoAnterior + " -> $" + saldoActual + ").  ");
 
-                System.out.println(transaccion.obtenerAccion()
-                        .toString());
+            if (saldoAnterior.min(saldoActual).equals(saldoAnterior)) {
+                System.out.println("+$" + saldoActual.subtract(saldoAnterior));
+            } else {
+                System.out.println("-$" + saldoAnterior.subtract(saldoActual));
             }
-        });
+
+            System.out.println("    " + transaccion.obtenerAccion()
+                    .toString());
+        }
+
+        System.out.println();
 
         System.out.println("""
                 Opciones disponibles:
@@ -274,10 +299,12 @@ public class SistemaBancario {
                 00. Cerrar sesión
                 000. Salir de la aplicación""");
 
-        String eleccionUsuario = renderizar(() -> {
-            System.out.print("Su elección: ");
-            return input.hasNextLine() ? input.nextLine() : "000";
-        });
+        System.out.println();
+
+        System.out.print("Su elección: ");
+
+        String eleccionUsuario = input.hasNext() ? input.next() : "000";
+        input.nextLine();
 
         int respuesta = switch (eleccionUsuario) {
             case "0" -> 2;
@@ -285,6 +312,8 @@ public class SistemaBancario {
             case "000" -> 1;
             default -> -1;
         };
+
+        System.out.println();
 
         if (respuesta == -1) {
             int seleccionada = Integer.parseInt(eleccionUsuario);
@@ -303,8 +332,11 @@ public class SistemaBancario {
                             .add(transaccion);
                 }
             } catch (Exception e) {
-                renderizar(() -> System.out.println(e.getMessage()));
+                System.out.println();
+                System.out.println("Error: " + e.getMessage());
             }
+
+            System.out.println();
         }
 
         return respuesta;
@@ -328,42 +360,21 @@ public class SistemaBancario {
         System.out.print("Digite monto a transferir: ");
         BigDecimal monto = input.hasNextBigDecimal() ? input.nextBigDecimal() : BigDecimal.ZERO;
 
-        Cuenta cuentaDestino = renderizar(() -> {
-            System.out.print("Ingrese nombre del propietario de la cuenta a transferir: ");
-            String nombre = input.hasNextLine() ? input.nextLine() : "";
+        System.out.print("Ingrese número de la cuenta: ");
+        String numero = input.hasNext() ? input.next() : "";
+        input.nextLine();
 
-            System.out.print("Ingrese número de la cuenta: ");
-            int numero = input.hasNextInt() ? input.nextInt() : 0;
+        try {
+            UUID numeroCuenta = UUID.fromString(numero);
 
-            if (!clientes.containsKey(nombre))
-                throw new RuntimeException("Cliente no existe.");
+            if (!cuentasPorNumero.containsKey(numeroCuenta))
+                throw new RuntimeException("Cuenta seleccionada no existe.");
 
-            Cliente cliente = clientes.get(nombre);
+            Cuenta cuentaDestino = cuentasPorNumero.get(numeroCuenta);
 
-            List<Cuenta> cuentas = SistemaBancario.cuentas
-                    .getOrDefault(cliente, new ArrayList<>());
-
-            if (numero <= 0 || numero > cuentas.size())
-                throw new RuntimeException("Cuenta seleccionada no existe o no es válida");
-
-            return cuentas.get(numero - 1);
-        });
-
-        return cuenta.transferirFondos(monto, cuentaDestino);
+            return cuenta.transferirFondos(monto, cuentaDestino);
+        } catch (IllegalArgumentException ex) {
+            throw new RuntimeException("Número seleccionado no es válido.");
+        }
     }
-
-    private static void renderizar(Runnable vista) {
-        System.out.println("\n+----\n");
-        vista.run();
-        System.out.println("\n+----\n");
-    }
-
-    private static <T> T renderizar(Supplier<T> vista) {
-        System.out.println("\n+----\n");
-        T resultado = vista.get();
-        System.out.println("\n+----\n");
-
-        return resultado;
-    }
-
 }

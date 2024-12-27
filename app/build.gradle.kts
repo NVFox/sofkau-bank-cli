@@ -7,6 +7,7 @@
 
 plugins {
     // Apply the application plugin to add support for building a CLI application in Java.
+    java
     application
 }
 
@@ -32,5 +33,11 @@ java {
 
 application {
     // Define the main class for the application.
-    mainClass = "org.example.App"
+    mainClass = "com.bank.SistemaBancario"
+}
+
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = "com.bank.SistemaBancario"
+    }
 }
