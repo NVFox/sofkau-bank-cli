@@ -9,11 +9,11 @@ import com.bank.util.interfaces.OperacionBancaria;
 public class Retiro implements OperacionBancaria<ComandoRetiro> {
     public void operar(ComandoRetiro comando) {
         PeticionRetiro peticion = comando.obtenerPeticion();
-        Cuenta destino = comando.destino();
+        Cuenta origen = comando.origen();
 
-        Transaccion transaccion = Transaccion.en(destino)
+        Transaccion transaccion = Transaccion.en(origen)
                 .porRetiro(peticion.monto());
 
-        destino.retirarFondos(peticion.monto());
+        origen.retirarFondos(peticion.monto());
     }
 }

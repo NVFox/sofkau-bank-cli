@@ -28,7 +28,7 @@ public class ComandoRetiro extends Comando<PeticionRetiro> {
         return new Builder(cuenta);
     }
 
-    public Cuenta destino() {
+    public Cuenta origen() {
         return cuenta;
     }
 }
