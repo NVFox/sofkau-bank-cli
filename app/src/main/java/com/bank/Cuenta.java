@@ -50,16 +50,11 @@ public class Cuenta {
         return this.propietario;
     }
 
-    public Transaccion depositarFondos(BigDecimal monto) {
+    public void depositarFondos(BigDecimal monto) {
         if (monto.compareTo(BigDecimal.ZERO) < 0)
             throw new MontoNegativo();
 
-        Transaccion transaccion = Transaccion.en(this)
-                .porDeposito(monto);
-
         this.saldo = saldo.add(monto);
-
-        return transaccion;
     }
 
     public Transaccion retirarFondos(BigDecimal monto) {

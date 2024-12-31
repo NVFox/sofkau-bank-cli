@@ -1,6 +1,7 @@
 package com.bank.operations;
 
 import com.bank.Cuenta;
+import com.bank.Transaccion;
 import com.bank.commands.ComandoDeposito;
 import com.bank.lib.observables.Event;
 import com.bank.requests.PeticionDeposito;
@@ -16,6 +17,9 @@ public class Deposito implements OperacionBancaria<ComandoDeposito> {
     public void operar(ComandoDeposito comando) {
         PeticionDeposito peticion = comando.obtenerPeticion();
         Cuenta destino = comando.destino();
+
+        Transaccion transaccion = Transaccion.en(destino)
+                .porDeposito(peticion.monto());
 
         destino.depositarFondos(peticion.monto());
     }
