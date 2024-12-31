@@ -10,6 +10,10 @@ import com.bank.lib.subscribers.Subscriber;
 public class Event<T> {
     private T payload;
 
+    public Event(T payload) {
+        this.payload = payload;
+    }
+
     public static class Listeners {
         private Map<Class<Event<?>>, List<Subscriber<Event<?>>>> listeners;
 
