@@ -57,19 +57,14 @@ public class Cuenta {
         this.saldo = saldo.add(monto);
     }
 
-    public Transaccion retirarFondos(BigDecimal monto) {
+    public void retirarFondos(BigDecimal monto) {
         if (monto.compareTo(BigDecimal.ZERO) < 0)
             throw new MontoNegativo();
 
         if (saldo.compareTo(monto) < 0)
             throw new FondosInsuficientes();
 
-        Transaccion transaccion = Transaccion.en(this)
-                .porRetiro(monto);
-
         this.saldo = saldo.subtract(monto);
-
-        return transaccion;
     }
 
     public List<Transaccion> transferirFondos(BigDecimal monto, Cuenta a) {
