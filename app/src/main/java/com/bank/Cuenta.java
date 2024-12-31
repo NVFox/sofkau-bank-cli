@@ -67,23 +67,15 @@ public class Cuenta {
         this.saldo = saldo.subtract(monto);
     }
 
-    public List<Transaccion> transferirFondos(BigDecimal monto, Cuenta a) {
+    public void transferirFondos(BigDecimal monto, Cuenta a) {
         if (monto.compareTo(BigDecimal.ZERO) < 0)
             throw new MontoNegativo();
 
         if (saldo.compareTo(monto) < 0)
             throw new FondosInsuficientes();
 
-        Transaccion transaccionPorEnvio = Transaccion.en(this)
-                .porTransferenciaEnviada(monto);
-
-        Transaccion transaccionPorRecibo = Transaccion.en(a)
-                .porTransferenciaRecibida(monto);
-
         this.saldo = saldo.subtract(monto);
         a.saldo = a.saldo.add(monto);
-
-        return List.of(transaccionPorEnvio, transaccionPorRecibo);
     }
 
     @Override
