@@ -15,23 +15,24 @@ public class Event<T> {
     }
 
     public static class Listeners {
-        private Map<Class<Event<?>>, List<Subscriber<Event<?>>>> listeners;
+        private Map<Class<? extends Event<?>>, List<Subscriber<? extends Event<?>>>> listeners;
 
         public Listeners() {
             this.listeners = new HashMap<>();
         }
 
-        public void add(Subscriber<Event<?>> subscriber) {
+        public <T> void add(Subscriber<? extends Event<?>> subscriber) {
             this.listeners.computeIfAbsent(subscriber.event(), k -> new LinkedList<>())
                     .add(subscriber);
         }
 
+        @SuppressWarnings("unchecked")
         public <T extends Event<?>> void dispatch(T event) {
             forEvent(event.getClass())
-                    .forEach(listener -> listener.update(event));
+                    .forEach(listener -> ((Subscriber<T>) listener).update(event));
         }
 
-        private List<Subscriber<Event<?>>> forEvent(Class<?> event) {
+        private List<Subscriber<? extends Event<?>>> forEvent(Class<?> event) {
             return this.listeners.get(event);
         }
     }

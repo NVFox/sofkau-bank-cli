@@ -5,6 +5,7 @@ import com.bank.lib.dependencies.Container;
 import com.bank.operations.Deposito;
 import com.bank.operations.Retiro;
 import com.bank.operations.Transferencia;
+import com.bank.util.classes.Comando;
 import com.bank.util.interfaces.OperacionBancaria;
 
 public class FabricaOperaciones {
@@ -14,7 +15,7 @@ public class FabricaOperaciones {
         this.container = container;
     }
 
-    public OperacionBancaria<?> porAccion(Accion accion) {
+    public OperacionBancaria<Comando<?>> porAccion(Accion accion) {
         return switch (accion) {
             case DEPOSITO -> container.resolve(Deposito.class);
             case RETIRO -> container.resolve(Retiro.class);

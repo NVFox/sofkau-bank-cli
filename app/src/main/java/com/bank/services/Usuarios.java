@@ -1,5 +1,6 @@
 package com.bank.services;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -9,6 +10,7 @@ public class Usuarios {
     private Map<String, Usuario> usuarios;
 
     public Usuarios() {
+        this.usuarios = new HashMap<>();
     }
 
     public static class UsuarioYaExiste extends RuntimeException {

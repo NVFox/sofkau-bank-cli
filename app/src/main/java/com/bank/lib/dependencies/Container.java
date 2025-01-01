@@ -16,7 +16,7 @@ import com.bank.services.Usuarios;
 
 public class Container {
     private static Container instance = null;
-    private Map<Class<?>, ? super Object> dependencies;
+    private Map<Class<?>, ? super Object> dependencies = new HashMap<>();
 
     {
         dependencies.put(Listeners.class, new Listeners());
@@ -35,7 +35,6 @@ public class Container {
     }
 
     private Container() {
-        this.dependencies = new HashMap<>();
     }
 
     public static Container get() {

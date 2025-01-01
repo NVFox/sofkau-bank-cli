@@ -1,6 +1,7 @@
 package com.bank.services;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,11 @@ import com.bank.Cuenta;
 public class Cuentas {
     private Map<UUID, Cuenta> cuentas;
     private Map<Cliente, List<Cuenta>> cuentasPorCliente;
+
+    public Cuentas() {
+        this.cuentas = new HashMap<>();
+        this.cuentasPorCliente = new HashMap<>();
+    }
 
     public static class CuentaNoExiste extends RuntimeException {
         public CuentaNoExiste() {
