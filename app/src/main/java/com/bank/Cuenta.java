@@ -50,50 +50,32 @@ public class Cuenta {
         return this.propietario;
     }
 
-    public Transaccion depositarFondos(BigDecimal monto) {
+    public void depositarFondos(BigDecimal monto) {
         if (monto.compareTo(BigDecimal.ZERO) < 0)
             throw new MontoNegativo();
-
-        Transaccion transaccion = Transaccion.en(this)
-                .porDeposito(monto);
 
         this.saldo = saldo.add(monto);
-
-        return transaccion;
     }
 
-    public Transaccion retirarFondos(BigDecimal monto) {
+    public void retirarFondos(BigDecimal monto) {
         if (monto.compareTo(BigDecimal.ZERO) < 0)
             throw new MontoNegativo();
 
         if (saldo.compareTo(monto) < 0)
             throw new FondosInsuficientes();
-
-        Transaccion transaccion = Transaccion.en(this)
-                .porRetiro(monto);
 
         this.saldo = saldo.subtract(monto);
-
-        return transaccion;
     }
 
-    public List<Transaccion> transferirFondos(BigDecimal monto, Cuenta a) {
+    public void transferirFondos(BigDecimal monto, Cuenta a) {
         if (monto.compareTo(BigDecimal.ZERO) < 0)
             throw new MontoNegativo();
 
         if (saldo.compareTo(monto) < 0)
             throw new FondosInsuficientes();
-
-        Transaccion transaccionPorEnvio = Transaccion.en(this)
-                .porTransferenciaEnviada(monto);
-
-        Transaccion transaccionPorRecibo = Transaccion.en(a)
-                .porTransferenciaRecibida(monto);
 
         this.saldo = saldo.subtract(monto);
         a.saldo = a.saldo.add(monto);
-
-        return List.of(transaccionPorEnvio, transaccionPorRecibo);
     }
 
     @Override

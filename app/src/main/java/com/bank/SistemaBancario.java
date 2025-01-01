@@ -2,37 +2,58 @@ package com.bank;
 
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Scanner;
 import java.util.UUID;
+import java.util.function.Consumer;
+
+import com.bank.Transaccion.Accion;
+import com.bank.commands.ComandoDeposito;
+import com.bank.commands.ComandoRetiro;
+import com.bank.commands.ComandoTransferencia;
+import com.bank.events.DepositoRealizado;
+import com.bank.events.RetiroRealizado;
+import com.bank.events.TransferenciaRealizada;
+import com.bank.factories.FabricaOperaciones;
+import com.bank.lib.dependencies.Container;
+import com.bank.lib.observables.Event;
+import com.bank.lib.subscribers.Subscriber;
+import com.bank.requests.PeticionDeposito;
+import com.bank.requests.PeticionRetiro;
+import com.bank.requests.PeticionTransferencia;
+import com.bank.services.Auth;
+import com.bank.services.Cuentas;
+import com.bank.services.Transacciones;
+import com.bank.util.classes.Comando;
+import com.bank.util.records.TransaccionCompuesta;
 
 public class SistemaBancario {
     private static Scanner input = new Scanner(System.in);
+    private static Container container = Container.get();
 
-    private static Map<String, Cliente> clientes = new HashMap<>();
+    private static Auth auth = container.resolve(Auth.class);
+    private static Cuentas cuentas = container.resolve(Cuentas.class);
+    private static Transacciones transacciones = container.resolve(Transacciones.class);
 
-    private static Map<Cliente, List<Cuenta>> cuentas = new HashMap<>();
-    private static Map<UUID, Cuenta> cuentasPorNumero = new HashMap<>();
+    private static FabricaOperaciones fabricaOperaciones = container.resolve(FabricaOperaciones.class);
 
-    private static Map<Cuenta, List<Transaccion>> transacciones = new HashMap<>();
+    static {
+        Event.Listeners listeners = container.resolve(Event.Listeners.class);
 
-    private enum TipoValidacion {
-        INICIO, CREACION;
+        Consumer<DepositoRealizado> crearTransaccionPorDeposito = (e) -> transacciones.crearTransaccion(e.getPayload());
 
-        public static TipoValidacion porCodigo(int codigo) {
-            return switch (codigo) {
-                case 1 -> INICIO;
-                case 2 -> CREACION;
-                default -> null;
-            };
-        }
+        Consumer<RetiroRealizado> crearTransaccionPorRetiro = (e) -> transacciones.crearTransaccion(e.getPayload());
 
-        public static boolean esValido(int codigo) {
-            return porCodigo(codigo) != null;
-        }
+        Consumer<TransferenciaRealizada> crearTransaccionPorTransferencia = (e) -> {
+            TransaccionCompuesta compuesta = e.getPayload();
+
+            transacciones.crearTransaccion(compuesta.saliente());
+            transacciones.crearTransaccion(compuesta.entrante());
+        };
+
+        listeners.add(Subscriber.on(DepositoRealizado.class, crearTransaccionPorDeposito));
+        listeners.add(Subscriber.on(RetiroRealizado.class, crearTransaccionPorRetiro));
+        listeners.add(Subscriber.on(TransferenciaRealizada.class, crearTransaccionPorTransferencia));
     }
 
     public static void main(String[] args) {
@@ -47,25 +68,21 @@ public class SistemaBancario {
 
             System.out.println();
 
-            if (!TipoValidacion.esValido(eleccionCuenta))
-                abierto = false;
-
-            TipoValidacion tipoValidacion = TipoValidacion.porCodigo(eleccionCuenta);
-
-            Cliente cliente = creacionInicioCliente();
-
-            boolean clienteEsValido = switch (tipoValidacion) {
-                case INICIO -> comprobarInicioDeSesion(cliente);
-                case CREACION -> comprobarCreacionDeCliente(cliente);
-            };
+            Usuario usuario = obtenerUsuarioDeCliente();
 
             System.out.println();
 
-            if (!clienteEsValido)
-                continue;
+            try {
+                Cliente cliente = eleccionCuenta == 1
+                        ? auth.login(usuario)
+                        : auth.signup(usuario);
 
-            if (cargarPerfil(cliente) == 1)
-                abierto = false;
+                if (cargarPerfil(cliente) == 1)
+                    abierto = false;
+            } catch (Exception e) {
+                System.out.println("Error: " + e.getMessage());
+                System.out.println();
+            }
         }
     }
 
@@ -79,7 +96,7 @@ public class SistemaBancario {
                 2. Crear una cuenta""");
     }
 
-    private static Cliente creacionInicioCliente() {
+    private static Usuario obtenerUsuarioDeCliente() {
         System.out.print("Ingrese nombre de usuario: ");
         String nombre = input.hasNext() ? input.next() : null;
         input.nextLine();
@@ -88,42 +105,7 @@ public class SistemaBancario {
         String contraseña = input.hasNext() ? input.next() : null;
         input.nextLine();
 
-        return Cliente.aPartirDe(new Usuario(nombre, contraseña));
-    }
-
-    private static boolean comprobarInicioDeSesion(Cliente cliente) {
-        Usuario usuario = cliente.obtenerUsuario();
-
-        if (!clientes.containsKey(usuario.nombre())) {
-            System.out.println();
-            System.out.println("Error: El usuario no existe.");
-            return false;
-        }
-
-        Usuario almacenado = clientes.get(usuario.nombre())
-                .obtenerUsuario();
-
-        if (!almacenado.contraseña().equals(usuario.contraseña())) {
-            System.out.println();
-            System.out.println("Error: La clave es incorrecta.");
-            return false;
-        }
-
-        return true;
-    }
-
-    private static boolean comprobarCreacionDeCliente(Cliente cliente) {
-        Usuario usuario = cliente.obtenerUsuario();
-
-        if (clientes.containsKey(usuario.nombre())) {
-            System.out.println();
-            System.out.println("Error: El usuario ya existe.");
-            return false;
-        }
-
-        clientes.put(usuario.nombre(), cliente);
-
-        return true;
+        return new Usuario(nombre, contraseña);
     }
 
     private static int cargarPerfil(Cliente cliente) {
@@ -132,7 +114,7 @@ public class SistemaBancario {
 
         while (abierto) {
             List<Cuenta> cuentas = SistemaBancario.cuentas
-                    .getOrDefault(cliente, new ArrayList<>());
+                    .obtenerCuentasPorCliente(cliente);
 
             respuesta = perfil(cliente, cuentas);
 
@@ -200,6 +182,8 @@ public class SistemaBancario {
 
             if (resultado == 0 || resultado == 1)
                 respuesta = resultado;
+        } else {
+            System.out.println();
         }
 
         return respuesta;
@@ -215,14 +199,7 @@ public class SistemaBancario {
                     : BigDecimal.ZERO;
 
             try {
-                Cuenta cuenta = Cuenta.abrirCon(cliente, saldoInicial);
-
-                cuentas.computeIfAbsent(cliente, (k) -> new ArrayList<>())
-                        .add(cuenta);
-
-                cuentasPorNumero.put(cuenta.obtenerNumero(), cuenta);
-
-                return cuenta;
+                return cuentas.crearCuenta(cliente, saldoInicial);
             } catch (Exception e) {
                 System.out.println();
                 System.out.println("Error: " + e.getMessage());
@@ -237,7 +214,7 @@ public class SistemaBancario {
 
         while (abierto) {
             List<Transaccion> transacciones = SistemaBancario.transacciones
-                    .getOrDefault(cuenta, new ArrayList<>());
+                    .obtenerTransaccionesPorCuenta(cuenta);
 
             respuesta = cuenta(cuenta, transacciones);
 
@@ -319,18 +296,24 @@ public class SistemaBancario {
             int seleccionada = Integer.parseInt(eleccionUsuario);
 
             try {
-                List<Transaccion> transaccionesPorOperacion = switch (seleccionada) {
-                    case 1 -> depositarEnCuenta(cuenta);
-                    case 2 -> retirarDeCuenta(cuenta);
-                    case 3 -> transferirDesdeCuenta(cuenta);
-                    default -> new ArrayList<>();
+                Accion accion = switch (seleccionada) {
+                    case 1 -> Accion.DEPOSITO;
+                    case 2 -> Accion.RETIRO;
+                    case 3 -> Accion.TRANSFERENCIA;
+                    default -> null;
                 };
 
-                for (Transaccion transaccion : transaccionesPorOperacion) {
-                    SistemaBancario.transacciones
-                            .computeIfAbsent(transaccion.obtenerCuenta(), (k) -> new ArrayList<>())
-                            .add(transaccion);
-                }
+                if (accion == null)
+                    return respuesta;
+
+                Comando<?> comando = switch (accion) {
+                    case DEPOSITO -> depositarEnCuenta(cuenta);
+                    case RETIRO -> retirarDeCuenta(cuenta);
+                    case TRANSFERENCIA -> transferirDesdeCuenta(cuenta);
+                };
+
+                fabricaOperaciones.porAccion(accion)
+                        .operar(comando);
             } catch (Exception e) {
                 System.out.println();
                 System.out.println("Error: " + e.getMessage());
@@ -342,21 +325,23 @@ public class SistemaBancario {
         return respuesta;
     }
 
-    private static List<Transaccion> depositarEnCuenta(Cuenta cuenta) {
+    private static ComandoDeposito depositarEnCuenta(Cuenta cuenta) {
         System.out.print("Digite monto a depositar: ");
         BigDecimal monto = input.hasNextBigDecimal() ? input.nextBigDecimal() : BigDecimal.ZERO;
 
-        return List.of(cuenta.depositarFondos(monto));
+        return ComandoDeposito.en(cuenta)
+                .con(new PeticionDeposito(monto));
     }
 
-    private static List<Transaccion> retirarDeCuenta(Cuenta cuenta) {
+    private static ComandoRetiro retirarDeCuenta(Cuenta cuenta) {
         System.out.print("Digite monto a retirar: ");
         BigDecimal monto = input.hasNextBigDecimal() ? input.nextBigDecimal() : BigDecimal.ZERO;
 
-        return List.of(cuenta.retirarFondos(monto));
+        return ComandoRetiro.en(cuenta)
+                .con(new PeticionRetiro(monto));
     }
 
-    private static List<Transaccion> transferirDesdeCuenta(Cuenta cuenta) {
+    private static ComandoTransferencia transferirDesdeCuenta(Cuenta cuenta) {
         System.out.print("Digite monto a transferir: ");
         BigDecimal monto = input.hasNextBigDecimal() ? input.nextBigDecimal() : BigDecimal.ZERO;
 
@@ -366,13 +351,11 @@ public class SistemaBancario {
 
         try {
             UUID numeroCuenta = UUID.fromString(numero);
+            Cuenta destino = cuentas.obtenerCuentaPorNumero(numeroCuenta);
 
-            if (!cuentasPorNumero.containsKey(numeroCuenta))
-                throw new RuntimeException("Cuenta seleccionada no existe.");
-
-            Cuenta cuentaDestino = cuentasPorNumero.get(numeroCuenta);
-
-            return cuenta.transferirFondos(monto, cuentaDestino);
+            return ComandoTransferencia.en(cuenta)
+                    .a(destino)
+                    .con(new PeticionTransferencia(monto));
         } catch (IllegalArgumentException ex) {
             throw new RuntimeException("Número seleccionado no es válido.");
         }
